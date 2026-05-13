@@ -1,0 +1,90 @@
+services:
+
+  # Don't forget to populate the .env file with the required variables
+  # before starting the services with "docker-compose up -d"!
+  #
+  # All MCP servers are available at http://${SERVICE_NAME}:${SERVICE_PORT}/mcp
+  # Via Transport Streamable HTTP
+
+
+  # ── NetBox MCP ────────────────────────────────────────────────────────────
+  netbox-mcp:
+    build:
+      context: https://github.com/netboxlabs/netbox-mcp-server.git
+    container_name: netbox-mcp
+    environment:
+      NETBOX_URL: ${NETBOX_URL}
+      NETBOX_TOKEN: ${NETBOX_TOKEN}
+      TRANSPORT: http
+      HOST: ${NETBOX_MCP_HOST}
+      PORT: ${NETBOX_MCP_PORT}
+      LOG_LEVEL: ${NETBOX_MCP_LOG_LEVEL:-INFO}
+      VERIFY_SSL: ${NETBOX_MCP_VERIFY_SSL:-true}
+    ports:
+      - "${NETBOX_MCP_PORT}:${NETBOX_MCP_PORT}"
+    networks:
+      - mcp-net
+    restart: unless-stopped
+
+  # ── RADKit MCP ─────────────────────────────────────────────────────────────────
+  radkit-mcp:
+    build:
+      context: .
+      dockerfile: docker/radkit-mcp.Dockerfile
+    container_name: radkit-mcp
+    environment:
+      RADKIT_MCP_PORT: ${RADKIT_MCP_PORT}
+      RADKIT_SANDBOX: ${RADKIT_SANDBOX}
+      RADKIT_SERVICE_CONFIG: ${RADKIT_SERVICE_CONFIG}
+      RADKIT_PROFILE: ${RADKIT_PROFILE}
+      RADKIT_PROMPT_FILE: ${RADKIT_PROMPT_FILE}
+      RADKIT_AUTO_APPROVE: ${RADKIT_AUTO_APPROVE}
+      RADKIT_MCP_LOG_DIR: ${RADKIT_MCP_LOG_DIR}
+      RADKIT_ACCESS_MODE: ${RADKIT_ACCESS_MODE}
+    ports:
+      - "${RADKIT_MCP_HOST_PORT}:${RADKIT_MCP_PORT}"
+    volumes:
+      - ./${RADKIT_SERVICE_CONFIG}:/app/${RADKIT_SERVICE_CONFIG}:ro
+      - ./${RADKIT_PROFILE}:/app/${RADKIT_PROFILE}:ro
+      - ./${RADKIT_PROMPT_FILE}:/app/${RADKIT_PROMPT_FILE}:ro
+      - ${RADKIT_LOGS_HOST_DIR}:/app/logs
+    restart: ${RADKIT_RESTART_POLICY}
+
+  # ── GitHub MCP ────────────────────────────────────────────────────────────
+  github-mcp:
+    build:
+      context: .
+      dockerfile: docker/github-mcp.Dockerfile
+    ports:
+      - "${GITHUB_MCP_PORT}:${GITHUB_MCP_PORT}"
+    environment:
+      GITHUB_MCP_PORT: ${GITHUB_MCP_PORT}
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PAT}
+      GITHUB_TOOLSETS: ${GITHUB_TOOLSETS:-repos,issues,pull_requests,actions}
+      GITHUB_HOST: ${GITHUB_HOST:-}
+    restart: unless-stopped
+    networks:
+      - mcp-net
+
+  # ── DrawIO MCP ────────────────────────────────────────────────────────────
+  drawio-mcp:
+    build:
+      context: .
+      dockerfile: docker/drawio-mcp.Dockerfile
+    ports:
+      - "${DRAWIO_MCP_PORT}:${DRAWIO_MCP_PORT}"
+    environment:
+      DRAWIO_MCP_PORT: ${DRAWIO_MCP_PORT}
+    networks:
+      - mcp-net
+    restart: unless-stopped
+
+# ── Shared network ─────────────────────────────────────────────────────────
+networks:
+  mcp-net:
+    driver: bridge
+
+# ── Named volumes ──────────────────────────────────────────────────────────
+volumes:
+  pyats-mcp-artifacts:
+  github-mcp-bin:

@@ -1,14 +1,15 @@
-# devnet-template
-This provides a template repository for creating or importing repos in the CiscoDevNet organization on GitHub.com. 
+radkit-llm mcp-server --auto-approve --sandbox subprocess --service-config service.config.direct --profile mcp-profile.py --prompt prompt.txt 
+uv venv -p 3.13 
+source .venv/bin/activate
 
-Please use this template as a guide to creating a repo that encourages contributions and shows thoughtful maintenance strategies.  
 
-The `CODE_OF_CONDUCT.md` reflects our standards for interaction. 
+uv run --no-sync radkit-llm mcp-server \
+  --port 8082 \
+  --sandbox subprocess \
+  --service-config service.config.direct \
+  --profile radkit-mcp-profile.py \
+  --prompt radkit-mcp-prompt.txt \
+  --auto-approve \
+  --mcp-log-dir logs/
 
-The `CONTRIBUTING.md` file instructs new contributors on how to communicate with the project maintainers, report issues, provide pull requests, reviewing contributions, and how to version control releases.
-
-The `LICENSE` file should contain the license you intend for the source code in the repo. 
-
-The `SECURITY.md` file describes security policies and procedures including reporting a security-related bug and the policy on disclosure. 
-
-The `AGENTS.md` file contains a template for guiding AI agents that work with your repository.
+For LibreChat deployments, keep auto-approval enabled. LibreChat's MCP client does not complete RADKit's approval elicitation flow, so disabling auto-approval causes tool calls like inventory refresh to stall and eventually time out.
