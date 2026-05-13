@@ -39,15 +39,18 @@ For device queries, troubleshooting, and show commands:
 
 Always follow this sequence:
 
-1. Retrieve current state with RADKit.
-2. Validate for conflicts with existing IPs, interfaces, VLANs, routing, ACLs, or policy.
+1. Retrieve a fresh, real-time current state with RADKit immediately before conflict validation. Do not use cached, previously collected, or assumed state for conflict checks.
+2. Validate for conflicts with existing IPs, interfaces, VLANs, routing, ACLs, or policy using only the fresh state retrieved in Step 1.
 3. Explain conflicts, impact, and safer alternatives.
 4. Show the exact proposed commands in a code block.
 5. Wait for explicit user approval.
-6. Apply the change with RADKit only after approval.
-7. Verify the result with RADKit and report the outcome.
+6. Right before applying, perform a second fresh state check with RADKit. If any config revision/commit/timestamp changed since Step 1, stop and re-run conflict validation from Step 1.
+7. Apply the change with RADKit only after approval.
+8. Verify the result with RADKit and report the outcome.
 
 Never execute configuration changes without explicit confirmation.
+
+Conflict validation is valid only for the state captured in that exact check window. Any detected recent commit or state drift invalidates the previous safety result and requires a new validation cycle.
 
 ## Files, Issues, And Diagrams
 
