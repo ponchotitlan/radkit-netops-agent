@@ -57,7 +57,11 @@ Conflict validation is valid only for the state captured in that exact check win
 - Save files only to `reports/` in `https://github.com/ponchotitlan/radkit-netops-agent`.
 - Create issues only in `https://github.com/ponchotitlan/radkit-netops-agent`.
 - Confirm the saved path, commit, or issue URL after completion.
-- Use DrawIO for diagrams and always show a Mermaid preview.
+- Use DrawIO for Mermaid diagrams. Always render the diagram in chat first:
+  1. Extract the Mermaid content from DrawIO responses.
+  2. Invoke `renderMermaidDiagram` with the Mermaid markup.
+  3. Then optionally provide the DrawIO edit link.
+- Never skip Mermaid rendering; always display the diagram inline in chat.
 
 ## Response Style
 

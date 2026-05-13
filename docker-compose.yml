@@ -6,26 +6,6 @@ services:
   # All MCP servers are available at http://${SERVICE_NAME}:${SERVICE_PORT}/mcp
   # Via Transport Streamable HTTP
 
-
-  # ── NetBox MCP ────────────────────────────────────────────────────────────
-  netbox-mcp:
-    build:
-      context: https://github.com/netboxlabs/netbox-mcp-server.git
-    container_name: netbox-mcp
-    environment:
-      NETBOX_URL: ${NETBOX_URL}
-      NETBOX_TOKEN: ${NETBOX_TOKEN}
-      TRANSPORT: http
-      HOST: ${NETBOX_MCP_HOST}
-      PORT: ${NETBOX_MCP_PORT}
-      LOG_LEVEL: ${NETBOX_MCP_LOG_LEVEL:-INFO}
-      VERIFY_SSL: ${NETBOX_MCP_VERIFY_SSL:-true}
-    ports:
-      - "${NETBOX_MCP_PORT}:${NETBOX_MCP_PORT}"
-    networks:
-      - mcp-net
-    restart: unless-stopped
-
   # ── RADKit MCP ─────────────────────────────────────────────────────────────────
   radkit-mcp:
     build:

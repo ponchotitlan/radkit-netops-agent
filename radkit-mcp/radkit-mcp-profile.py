@@ -11,10 +11,11 @@ update_scope() receives a ProfileContext dataclass (not a dict):
 """
 
 import os
-from typing import Any
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import Any, Protocol
 
-ACCESS_MODE = os.environ.get("RADKIT_ACCESS_MODE", "show").strip().lower()
+DEFAULT_ACCESS_MODE = "show"
+ACCESS_MODE = os.environ.get("RADKIT_ACCESS_MODE", DEFAULT_ACCESS_MODE).strip().lower()
 
 MODE_PREFIXES: dict[str, list[str]] = {
     "full": [],
@@ -23,24 +24,96 @@ MODE_PREFIXES: dict[str, list[str]] = {
     "debug": ["debug"],
 }
 
-ALLOWED_PREFIXES = MODE_PREFIXES.get(ACCESS_MODE, ["show"])
+ALLOWED_PREFIXES = MODE_PREFIXES.get(ACCESS_MODE, [DEFAULT_ACCESS_MODE])
+
+
+class _ExecuteCliCallable(Protocol):
+    """
+    Summary:
+        Define the callable shape expected from the RADKit CLI executor.
+
+    Args:
+        devices: Device selector or collection accepted by RADKit.
+        commands: Ordered CLI commands to run.
+
+    Returns:
+        Any: The executor result from RADKit (typically execution responses).
+    """
+
+    def __call__(self, devices: Any, commands: Sequence[str]) -> Any:
+        """
+        Summary:
+            Run one or more CLI commands against one or more devices.
+
+        Args:
+            devices: Device selector or collection accepted by RADKit.
+            commands: Ordered CLI commands to run.
+
+        Returns:
+            Any: Raw result returned by the underlying RADKit executor.
+        """
+
+
+class ProfileContext(Protocol):
+    """
+    Summary:
+        Describe the minimal context contract required by update_scope.
+
+    Args:
+        client: RADKit synchronous client instance.
+        connect_service: Function that returns a connected service object.
+
+    Returns:
+        None: Protocol declarations are used for static typing only.
+    """
+
+    client: Any
+    connect_service: Callable[[], Any]
 
 
 def _is_command_allowed(command: str) -> tuple[bool, str]:
-    if not command or not command.strip():
+    """
+    Summary:
+        Check whether a single CLI command is allowed for the active mode.
+
+    Args:
+        command: Raw CLI command string to validate.
+
+    Returns:
+        tuple[bool, str]:
+            - bool: True when the command is allowed.
+            - str: Human-readable reason explaining the decision.
+    """
+
+    normalized_command = command.strip().lower() if command else ""
+    if not normalized_command:
         return False, "Empty command"
+
     if ACCESS_MODE == "full":
         return True, "Full access mode"
-    cmd_lower = command.strip().lower()
+
     for prefix in ALLOWED_PREFIXES:
-        if cmd_lower.startswith(prefix.lower()):
+        if normalized_command.startswith(prefix.lower()):
             return True, f"Matches prefix: '{prefix}'"
+
     return False, f"Blocked. Mode '{ACCESS_MODE}' allows: {', '.join(ALLOWED_PREFIXES)}"
 
 
 def get_access_mode() -> str:
+    """
+    Summary:
+        Build a readable description of the current command access mode.
+
+    Args:
+        None.
+
+    Returns:
+        str: Mode label and allowed command prefixes.
+    """
+
     if ACCESS_MODE == "full":
         return "FULL - all commands allowed (read-write)"
+
     return f"{ACCESS_MODE.upper()} - only: {', '.join(ALLOWED_PREFIXES)}"
 
 
@@ -53,34 +126,63 @@ class _FilteredExecuteCliCommands:
     Signature matches: __call__(devices, commands) -> list[SingleExecResponse[str]]
     """
 
-    def __init__(self, real_execute: Any) -> None:
+    def __init__(self, real_execute: _ExecuteCliCallable) -> None:
+        """
+        Summary:
+            Store the real RADKit executor used after command validation.
+
+        Args:
+            real_execute: Callable that runs CLI commands through RADKit.
+
+        Returns:
+            None: Initializes the wrapper instance.
+        """
+
         self._real_execute = real_execute
 
     def __call__(self, devices: Any, commands: Sequence[str]) -> Any:
+        """
+        Summary:
+            Validate all commands and execute only when all are allowed.
+
+        Args:
+            devices: Device selector or collection accepted by RADKit.
+            commands: CLI commands to validate and execute.
+
+        Returns:
+            Any: Result returned by the wrapped RADKit executor.
+        """
+
         for cmd in commands:
             allowed, reason = _is_command_allowed(cmd)
             if not allowed:
                 raise ValueError(f"BLOCKED: {reason}")
+
         return self._real_execute(devices, commands)
 
 
-def update_scope(ctx: Any) -> dict[str, Any]:
+def update_scope(ctx: ProfileContext) -> dict[str, Any]:
     """
-    ctx is a ProfileContext dataclass with:
-        .client          -> radkit_client.sync.Client
-        .connect_service -> Callable[[], Service]
+    Summary:
+        Build sandbox bindings and replace execute_cli_commands with a filtered wrapper.
 
-    Returns a dict that gets merged into the sandbox scope.
-    We import and instantiate the REAL _ExecuteCliCommands, then wrap it
-    with our command filter. This preserves the exact return type
-    (list[SingleExecResponse[str]]) expected by the sandbox.
+    Args:
+        ctx: Profile context with client and connect_service attributes.
+
+    Returns:
+        dict[str, Any]: Dictionary merged into the sandbox scope.
+
+    Notes:
+        The underlying _ExecuteCliCommands instance is wrapped to enforce
+        this profile's command policy while keeping RADKit behavior intact.
     """
+    _ = ctx
+
     from radkit_llm.integrations.radkit.in_sandbox import _ExecuteCliCommands
 
     real_execute = _ExecuteCliCommands()
-    filtered_execute = _FilteredExecuteCliCommands(real_execute)
 
     return {
-        "execute_cli_commands": filtered_execute,
+        "execute_cli_commands": _FilteredExecuteCliCommands(real_execute),
         "get_access_mode": get_access_mode,
     }
